@@ -27,7 +27,7 @@ pub fn get_tmux_pane_height() -> Result<u16, String> {
 
     Ok(pane_height)
 }
-pub fn get_tmux_buffer_contents(pane_height: u16, backward_history: u16) -> Result<String, String> {
+pub fn get_tmux_buffer_contents(pane_height: u16, backward_history: u32) -> Result<String, String> {
     let mut tmux_cmd = Command::new("tmux");
     tmux_cmd
         .arg("capture-pane")

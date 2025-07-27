@@ -14,11 +14,17 @@ fn main() -> Result<(), String> {
     })?;
     fzf_handler_path.set_file_name("fzf_handler");
 
-    let _ = Command::new("tmux")
+    // Allowing the subprocess to see the active pane
+    let tmux_pane = std::env::var("TMUX_PANE").map_err(|e| e.to_string())?;
+
+    Command::new("tmux")
         .arg("popup")
-        .arg("-E")
+        .arg("-e")
+        .arg(format!("TMUX_PANE={}", tmux_pane))
+        .arg("-E") // I believe this has to be the last arg for it to work
         .arg(fzf_handler_path)
-        .output();
+        .output()
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }
