@@ -1,5 +1,7 @@
 use itertools::Itertools;
 use pluckrs::tmux_utils;
+use dirs::home_dir;
+use pluckrs::config;
 use regex::Regex;
 use std::{
     io::Write,
@@ -69,12 +71,15 @@ fn get_filtered_data_from_lines(lines: &Vec<&str>, regex_pattern: &Regex) -> Str
 }
 
 fn main() -> Result<(), String> {
-    let backward_history: u32 = 500000;
     let filter_button = "ctrl-f";
     let copy_button = "enter";
     let insert_button = "tab";
     let clip_tool = "pbcopy"; // Only MacOS support for now :^)
     let tmux_pane = std::env::var("TMUX_PANE").map_err(|e| e.to_string())?;
+
+    let config_file_path = home_dir().unwrap().join(".config").join("pluckrs").join("config.toml");
+    let configuration = config::read_config(config_file_path.to_str().unwrap()).unwrap();
+    let backward_history = configuration.general.backward_history;
 
     let pane_height = tmux_utils::get_tmux_pane_height()
         .map_err(|e| format!("Failed to read pane height! Error: {:?}", e))?;
