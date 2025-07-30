@@ -115,12 +115,17 @@ fn launch_fzf(
 }
 
 fn main() -> Result<(), String> {
-    let config_file_path = home_dir()
-        .unwrap()
+    let home_directory = match home_dir() {
+        Some(val) => val,
+        None => {
+            return Err("Unable to find home directory!".to_string());
+        }
+    };
+    let config_file_path = home_directory
         .join(".config")
         .join("pluckrs")
         .join("config.toml");
-    let configuration = config::read_config(config_file_path.to_str().unwrap()).unwrap();
+    let configuration = config::read_config(config_file_path).unwrap();
     let regex_map = configuration.regexes;
     let regex_order = configuration.general.regex_order;
     let mut regex_iter = regex_order.iter().cycle();
