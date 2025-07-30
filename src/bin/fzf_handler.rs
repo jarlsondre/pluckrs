@@ -1,138 +1,23 @@
-use dirs::home_dir;
-use itertools::Itertools;
-use pluckrs::config;
 use pluckrs::tmux_utils;
+use pluckrs::utils;
+
+use itertools::Itertools;
 use regex::Regex;
-use std::{
-    io::Write,
-    process::{Command, Output, Stdio},
-    str::from_utf8,
-};
+use std::str::from_utf8;
+
 // Note: There is a reload mode for fzf, maybe it's faster??
-// EXIT STATUS for fzf
-//        0      Normal exit
-//        1      No match
-//        2      Error
-//        126    Permission denied error from become action
-//        127    Invalid shell command for become action
-//        130    Interrupted with CTRL-C or ESC
-
 // Should probably validate the regexes inside the configuration
-
-fn copy_into_clipboard(text: &str, clip_tool: &str) -> Result<(), String> {
-    let mut copy_cmd = Command::new(clip_tool);
-    copy_cmd.stdin(Stdio::piped());
-
-    let mut process_handle = copy_cmd.spawn().map_err(|e| e.to_string())?;
-    let mut stdin_handle = process_handle
-        .stdin
-        .take()
-        .ok_or("Unable to get stdin handle from copy process")?;
-
-    stdin_handle.write_all(text.as_bytes()).map_err(|e| {
-        format!(
-            "Failed to write text to copy process stdin with error {}",
-            e
-        )
-    })?;
-    drop(stdin_handle);
-    process_handle.wait().map_err(|e| e.to_string())?;
-
-    Ok(())
-}
-
-fn insert_text(text: &str, tmux_pane: &str) -> Result<(), String> {
-    Command::new("tmux")
-        .arg("send-keys")
-        .arg("-t")
-        .arg(tmux_pane)
-        .arg(text)
-        .output()
-        .map_err(|e| e.to_string())?;
-
-    Ok(())
-}
-
-fn get_filtered_data_from_lines(lines: &Vec<&str>, regex_pattern: &Regex) -> String {
-    // Finds all matches in all lines and joins the results into a single string
-    // Only outputs unique matches
-    let result = lines
-        .iter()
-        .flat_map(|line| {
-            regex_pattern
-                .find_iter(line)
-                .map(|m| m.as_str())
-                .collect::<Vec<&str>>()
-        })
-        .unique()
-        .join("\n");
-    return result;
-}
-
-fn launch_fzf(
-    query: &str,
-    mode: &str,
-    buffer_contents: &str,
-    filter_button: &str,
-    copy_button: &str,
-    insert_button: &str,
-) -> Result<Output, String> {
-    let mut fzf_cmd = Command::new("fzf");
-
-    fzf_cmd.arg(format!(
-        "--expect={},{},{}",
-        filter_button, copy_button, insert_button
-    ));
-    fzf_cmd.arg("--expect=ctrl-g,esc"); // Adding basic buttons to ensure always capturing a key
-    fzf_cmd.arg("--print-query"); // Get the query when fzf finishes
-    fzf_cmd.arg(format!("--query={}", query)); // Inject the previous query
-
-    let header = format!(
-        "PLUCKRS | mode: {} | Toggle filter: {} | Copy: {} | Insert: {}",
-        mode, filter_button, copy_button, insert_button
-    );
-    fzf_cmd.arg(format!("--header={}", header));
-
-    fzf_cmd.stdin(Stdio::piped());
-    fzf_cmd.stdout(Stdio::piped());
-
-    let mut fzf_process_handle = fzf_cmd.spawn().map_err(|e| e.to_string())?;
-    let mut fzf_stdin_handle = fzf_process_handle
-        .stdin
-        .take()
-        .ok_or("Unable to get stdin handle from fzf process")?;
-
-    fzf_stdin_handle
-        .write_all(buffer_contents.as_bytes())
-        .map_err(|e| format!("Failed to write buffer to fzf stdin with error {}", e))?;
-
-    drop(fzf_stdin_handle);
-    let output = fzf_process_handle
-        .wait_with_output()
-        .map_err(|e| e.to_string())?;
-
-    Ok(output)
-}
+// At least that the modes match the actual values inside of the hashmap
 
 fn main() -> Result<(), String> {
-    let home_directory = match home_dir() {
-        Some(val) => val,
-        None => {
-            return Err("Unable to find home directory!".to_string());
-        }
-    };
-    let config_file_path = home_directory
-        .join(".config")
-        .join("pluckrs")
-        .join("config.toml");
-    let configuration = config::read_config(config_file_path).unwrap();
+    let configuration = utils::get_home_config_file()?;
     let regex_map = configuration.regexes;
+    let min_length = configuration.general.min_length;
     let regex_order = configuration.general.regex_order;
     let mut regex_iter = regex_order.iter().cycle();
-    // let mut regex_iter = regex_map.iter().cycle();
 
     let backward_history = configuration.general.backward_history;
-    let clip_tool = configuration.general.clip_tool.unwrap();
+    let clip_tool = configuration.general.clip_tool;
 
     let copy_button = configuration.keybinds.copy;
     let filter_button = configuration.keybinds.filter;
@@ -157,18 +42,13 @@ fn main() -> Result<(), String> {
     let mut mode = regex_iter.next().unwrap();
     let mut chosen_regex_str = &regex_map[mode];
     let mut chosen_regex = Regex::new(&chosen_regex_str).unwrap();
-    let mut buffer_contents = get_filtered_data_from_lines(&original_buffer_lines, &chosen_regex);
-
-    // Later plans: implement direct access...
-    // ctrl-1 -> 1
-    // ctrl-2 -> 2
-    // ctrl-3 -> 3
-    // etc.
+    let mut buffer_contents =
+        utils::get_filtered_data_from_lines(&original_buffer_lines, &chosen_regex, min_length);
 
     let mut query = String::from("");
 
     loop {
-        let fzf_output = launch_fzf(
+        let fzf_output = utils::launch_fzf(
             &query,
             &mode,
             &buffer_contents,
@@ -193,7 +73,6 @@ fn main() -> Result<(), String> {
         // Parsing the output
         let stdout_str = from_utf8(&fzf_output.stdout).unwrap().trim();
         let fzf_output_list: Vec<&str> = stdout_str.split("\n").collect();
-        println!("fzf_output_list: {:?}", fzf_output_list);
 
         // The output has the format [query, key_press, match], but only if it has an actual
         // value for them, i.e. the list could be [key_press, match] if no query was present
@@ -223,12 +102,18 @@ fn main() -> Result<(), String> {
             chosen_regex_str = &regex_map[mode];
             chosen_regex = Regex::new(&chosen_regex_str).unwrap();
 
-            buffer_contents = get_filtered_data_from_lines(&original_buffer_lines, &chosen_regex);
+            buffer_contents = utils::get_filtered_data_from_lines(
+                &original_buffer_lines,
+                &chosen_regex,
+                min_length,
+            );
         } else if key_press == copy_button {
-            copy_into_clipboard(&selection, &clip_tool)?;
+            utils::copy_into_clipboard(&selection, &clip_tool)?;
             break;
         } else if key_press == insert_button {
-            insert_text(&selection, &tmux_pane)?;
+            utils::insert_text(&selection, &tmux_pane)?;
+            break;
+        } else if key_press == "esc" {
             break;
         }
 

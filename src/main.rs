@@ -1,5 +1,4 @@
-use dirs::home_dir;
-use pluckrs::config;
+use pluckrs::utils;
 use std::process::Command;
 mod tmux_utils;
 
@@ -8,24 +7,7 @@ mod tmux_utils;
 // to keep everything in Rust.
 
 fn main() -> Result<(), String> {
-    let home_directory = match home_dir() {
-        Some(val) => val,
-        None => {
-            return Err("Unable to find home directory!".to_string());
-        }
-    };
-    let config_file_path = home_directory
-        .join(".config")
-        .join("pluckrs")
-        .join("config.toml");
-
-    let configuration = config::read_config(config_file_path).map_err(|e| {
-        format!(
-            "Failed to read configuration! Make sure you have your configuration at \
-            `~/.config/pluckrs/config.toml`. Error was: '{}'",
-            e.to_string()
-        )
-    })?;
+    let configuration = utils::get_home_config_file()?;
 
     let height = configuration.general.popup_height;
     let width = configuration.general.popup_width;
