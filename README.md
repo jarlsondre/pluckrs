@@ -18,6 +18,12 @@ Keep in mind that this is currently in development. Thus, there are a ton of mis
 - `fzf`
 - `cargo` (`Rust`)
 
+## Configuration
+
+To configure the application, you have to create a file with the path 
+`~/.config/pluckrs/config.toml`. You can check out the `sample_config.toml` for information
+on how to structure your config.
+
 ## Implemented Features
 
 - Show lines from current `tmux` pane and search through them with `fzf`
