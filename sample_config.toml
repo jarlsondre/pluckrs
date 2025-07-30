@@ -1,0 +1,13 @@
+[general]
+backward_history = 50000
+clip_tool = "pbcopy"
+
+[keybinds]
+insert = "tab"
+copy = "enter"
+filter = "ctrl-f"
+
+[regexes]
+line = ""
+path = ""
+url = ""

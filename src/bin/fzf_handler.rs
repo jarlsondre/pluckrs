@@ -1,11 +1,11 @@
-use itertools::Itertools;
-use pluckrs::tmux_utils;
 use dirs::home_dir;
+use itertools::Itertools;
 use pluckrs::config;
+use pluckrs::tmux_utils;
 use regex::Regex;
 use std::{
     io::Write,
-    process::{Command, Stdio},
+    process::{Command, Output, Stdio},
     str::from_utf8,
 };
 // Note: There is a reload mode for fzf, maybe it's faster??
@@ -17,8 +17,7 @@ use std::{
 //        127    Invalid shell command for become action
 //        130    Interrupted with CTRL-C or ESC
 
-// Next step: Make it possible to insert the selected text
-// Next step: Make a struct that handles a clipboard configuration etc
+// Should probably validate the regexes inside the configuration
 
 fn copy_into_clipboard(text: &str, clip_tool: &str) -> Result<(), String> {
     let mut copy_cmd = Command::new(clip_tool);
@@ -70,16 +69,71 @@ fn get_filtered_data_from_lines(lines: &Vec<&str>, regex_pattern: &Regex) -> Str
     return result;
 }
 
-fn main() -> Result<(), String> {
-    let filter_button = "ctrl-f";
-    let copy_button = "enter";
-    let insert_button = "tab";
-    let clip_tool = "pbcopy"; // Only MacOS support for now :^)
-    let tmux_pane = std::env::var("TMUX_PANE").map_err(|e| e.to_string())?;
+fn launch_fzf(
+    query: &str,
+    mode: &str,
+    buffer_contents: &str,
+    filter_button: &str,
+    copy_button: &str,
+    insert_button: &str,
+) -> Result<Output, String> {
+    let mut fzf_cmd = Command::new("fzf");
 
-    let config_file_path = home_dir().unwrap().join(".config").join("pluckrs").join("config.toml");
+    fzf_cmd.arg(format!(
+        "--expect={},{},{}",
+        filter_button, copy_button, insert_button
+    ));
+    fzf_cmd.arg("--expect=ctrl-g,esc"); // Adding basic buttons to ensure always capturing a key
+    fzf_cmd.arg("--print-query"); // Get the query when fzf finishes
+    fzf_cmd.arg(format!("--query={}", query)); // Inject the previous query
+
+    let header = format!(
+        "PLUCKRS | mode: {} | Toggle filter: {} | Copy: {} | Insert: {}",
+        mode, filter_button, copy_button, insert_button
+    );
+    fzf_cmd.arg(format!("--header={}", header));
+
+    fzf_cmd.stdin(Stdio::piped());
+    fzf_cmd.stdout(Stdio::piped());
+
+    let mut fzf_process_handle = fzf_cmd.spawn().map_err(|e| e.to_string())?;
+    let mut fzf_stdin_handle = fzf_process_handle
+        .stdin
+        .take()
+        .ok_or("Unable to get stdin handle from fzf process")?;
+
+    fzf_stdin_handle
+        .write_all(buffer_contents.as_bytes())
+        .map_err(|e| format!("Failed to write buffer to fzf stdin with error {}", e))?;
+
+    drop(fzf_stdin_handle);
+    let output = fzf_process_handle
+        .wait_with_output()
+        .map_err(|e| e.to_string())?;
+
+    Ok(output)
+}
+
+fn main() -> Result<(), String> {
+    let config_file_path = home_dir()
+        .unwrap()
+        .join(".config")
+        .join("pluckrs")
+        .join("config.toml");
     let configuration = config::read_config(config_file_path.to_str().unwrap()).unwrap();
+    let regex_map = configuration.regexes;
+    let regex_order = configuration.general.regex_order;
+    let mut regex_iter = regex_order.iter().cycle();
+    // let mut regex_iter = regex_map.iter().cycle();
+
     let backward_history = configuration.general.backward_history;
+    let clip_tool = configuration.general.clip_tool.unwrap();
+
+    let copy_button = configuration.keybinds.copy;
+    let filter_button = configuration.keybinds.filter;
+    let insert_button = configuration.keybinds.insert;
+
+    let tmux_pane = std::env::var("TMUX_PANE").map_err(|e| e.to_string())?;
 
     let pane_height = tmux_utils::get_tmux_pane_height()
         .map_err(|e| format!("Failed to read pane height! Error: {:?}", e))?;
@@ -94,31 +148,10 @@ fn main() -> Result<(), String> {
         .unique()
         .collect::<Vec<&str>>();
 
-    let path_regex =
-        Regex::new(r#"(?:[ \t\n"\(\[<':]|^)(~|/)?([-~a-zA-Z0-9_+,\-.]+/[^ \t\n\r|:"'$%&)>\]]*)"#)
-            .unwrap();
-
-    let url_regex = Regex::new(
-        r#"(https?://|git@|git://|ssh://|s?ftp://|file:///)([a-zA-Z0-9?=%/_.:,;~@!#$&()*+\-]*)"#,
-    )
-    .unwrap();
-
-    let line_regex = Regex::new(r#"^.*$"#).unwrap();
-
-    // Finding all regex matches across lines. Allows multiple matches per line
-
-    let modes = vec!["line", "path", "url"];
-    let mut modes_iter = modes.iter().cycle();
-    let mut mode: &str = modes_iter.next().unwrap();
-
-    let mut chosen_regex = &path_regex;
-    if mode == "path" {
-        chosen_regex = &path_regex;
-    } else if mode == "url" {
-        chosen_regex = &url_regex;
-    } else if mode == "line" {
-        chosen_regex = &line_regex;
-    }
+    // let (mut mode, mut chosen_regex_str) = regex_iter.next().unwrap();
+    let mut mode = regex_iter.next().unwrap();
+    let mut chosen_regex_str = &regex_map[mode];
+    let mut chosen_regex = Regex::new(&chosen_regex_str).unwrap();
     let mut buffer_contents = get_filtered_data_from_lines(&original_buffer_lines, &chosen_regex);
 
     // Later plans: implement direct access...
@@ -130,37 +163,18 @@ fn main() -> Result<(), String> {
     let mut query = String::from("");
 
     loop {
-        let mut fzf_cmd = Command::new("fzf");
-        fzf_cmd.arg(format!("--expect={}", filter_button));
-        fzf_cmd.arg(format!("--expect={}", copy_button));
-        fzf_cmd.arg(format!("--expect={}", insert_button));
-        fzf_cmd.arg("--expect=ctrl-g,esc"); // Adding basic buttons to ensure always capturing a key
-        fzf_cmd.arg("--print-query"); // Get the query when fzf finishes
-        fzf_cmd.arg(format!("--query={}", query)); // Inject the previous query
-        fzf_cmd.stdin(Stdio::piped());
-        fzf_cmd.stdout(Stdio::piped());
-
-        let header = format!(
-            "PLUCKRS - mode: {} - Change mode using {}",
-            mode, filter_button
-        );
-        fzf_cmd.arg(format!("--header={}", header));
-
-        let mut fzf_process_handle = fzf_cmd.spawn().map_err(|e| e.to_string())?;
-        let mut fzf_stdin_handle = fzf_process_handle
-            .stdin
-            .take()
-            .ok_or("Unable to get stdin handle from fzf process")?;
-
-        fzf_stdin_handle
-            .write_all(buffer_contents.as_bytes())
-            .map_err(|e| format!("Failed to write buffer to fzf stdin with error {}", e))?;
-
-        drop(fzf_stdin_handle);
-        let output = fzf_process_handle.wait_with_output().unwrap();
+        let fzf_output = launch_fzf(
+            &query,
+            &mode,
+            &buffer_contents,
+            &filter_button,
+            &copy_button,
+            &insert_button,
+        )
+        .unwrap();
 
         // If the user presses escape or ctrl+c
-        let output_code = output.status.code().unwrap();
+        let output_code = fzf_output.status.code().unwrap();
         if output_code == 130 {
             println!("User exited!");
             break;
@@ -172,7 +186,7 @@ fn main() -> Result<(), String> {
         }
 
         // Parsing the output
-        let stdout_str = from_utf8(&output.stdout).unwrap().trim();
+        let stdout_str = from_utf8(&fzf_output.stdout).unwrap().trim();
         let fzf_output_list: Vec<&str> = stdout_str.split("\n").collect();
         println!("fzf_output_list: {:?}", fzf_output_list);
 
@@ -200,16 +214,13 @@ fn main() -> Result<(), String> {
         }
 
         if key_press == filter_button {
-            mode = modes_iter.next().unwrap();
-            chosen_regex = match mode {
-                "path" => &path_regex,
-                "url" => &url_regex,
-                "line" => &line_regex,
-                _ => &line_regex,
-            };
-            buffer_contents = get_filtered_data_from_lines(&original_buffer_lines, chosen_regex);
+            mode = regex_iter.next().unwrap();
+            chosen_regex_str = &regex_map[mode];
+            chosen_regex = Regex::new(&chosen_regex_str).unwrap();
+
+            buffer_contents = get_filtered_data_from_lines(&original_buffer_lines, &chosen_regex);
         } else if key_press == copy_button {
-            copy_into_clipboard(&selection, clip_tool)?;
+            copy_into_clipboard(&selection, &clip_tool)?;
             break;
         } else if key_press == insert_button {
             insert_text(&selection, &tmux_pane)?;
@@ -219,9 +230,9 @@ fn main() -> Result<(), String> {
         println!("query: {}", query);
         println!("key_press: {}", key_press);
         println!("selection: {}", selection);
-        println!("status: {}", output.status);
+        println!("status: {}", fzf_output.status);
         println!("stdout: {}", stdout_str);
-        println!("stderr: {:?}", output.stderr);
+        println!("stderr: {:?}", fzf_output.stderr);
     }
 
     // fzf_cmd.stdin(cfg)

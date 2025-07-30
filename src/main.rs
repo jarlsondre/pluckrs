@@ -1,4 +1,6 @@
 use std::process::Command;
+use dirs::home_dir;
+use pluckrs::config;
 mod tmux_utils;
 
 // This file serves as the main entry point to the plugin. All it does it launch
@@ -6,6 +8,15 @@ mod tmux_utils;
 // to keep everything in Rust.
 
 fn main() -> Result<(), String> {
+    let config_file_path = home_dir()
+        .unwrap()
+        .join(".config")
+        .join("pluckrs")
+        .join("config.toml");
+    let configuration = config::read_config(config_file_path.to_str().unwrap()).unwrap();
+    let height = configuration.general.popup_height;
+    let width = configuration.general.popup_width;
+
     let mut fzf_handler_path = std::env::current_exe().map_err(|e| {
         format!(
             "Getting path of current executable failed with error: {}",
@@ -21,7 +32,12 @@ fn main() -> Result<(), String> {
         .arg("popup")
         .arg("-e")
         .arg(format!("TMUX_PANE={}", tmux_pane))
-        .arg("-E") // I believe this has to be the last arg for it to work
+        .arg("-h")
+        .arg(height)
+        .arg("-w")
+        .arg(width)
+        // The -E has to be the last argument for this to work
+        .arg("-E")
         .arg(fzf_handler_path)
         .output()
         .map_err(|e| e.to_string())?;
