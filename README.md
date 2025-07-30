@@ -21,13 +21,14 @@ Keep in mind that this is currently in development. Thus, there are a ton of mis
 ## Implemented Features
 
 - Show lines from current `tmux` pane and search through them with `fzf`
-- Filter by path (kinda wonky still, regex might need some work)
-- Filter by url (very wonky still, regex definitely needs some work)
-- Copy selection
- - Only supports `pbcopy`, i.e. MacOS, at the moment
+- Filter by path (regex completely rewritten seems to work well now)
+- Filter by url (wonky still, regex definitely needs some work)
+- Copy selection (only supports `pbcopy` at the moment, but user can specify in config)
 - Insert selection
 
-## Planned Features
+## Planned Improvements
 
-- Configure plugin in configuration file
+- Tests (!!!)
+- Adding `all` filter that combines all other filters
+- Choose whether to use `tmux popup` or something else
 - Configure plugin in `.tmux.conf`

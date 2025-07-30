@@ -1,6 +1,9 @@
 [general]
 backward_history = 50000
 clip_tool = "pbcopy"
+popup_width = "60%"
+popup_height = "90%"
+regex_order = ["path", "line", "url"]
 
 [keybinds]
 insert = "tab"
@@ -8,6 +11,6 @@ copy = "enter"
 filter = "ctrl-f"
 
 [regexes]
-line = ""
-path = ""
-url = ""
+line = '^.*$'
+url = '(https?://|git@|git://|ssh://|s?ftp://|file:///)([a-zA-Z0-9?=%/_.:,;~@!#$&()*+\-]*)'
+path = '(~/|/{1,2}|\.{1,2}/|[a-zA-Z0-9-]+/)([a-zA-Z0-9\.-]+/)*[a-zA-Z0-9_\.-]+/?'
