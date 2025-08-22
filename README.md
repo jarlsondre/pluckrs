@@ -35,6 +35,7 @@ on how to structure your config.
 ## Planned Improvements
 
 - Tests (!!!)
+- Remove the need for a configuration file
 - Adding `all` filter that combines all other filters
 - Choose whether to use `tmux popup` or something else
 - Configure plugin in `.tmux.conf`

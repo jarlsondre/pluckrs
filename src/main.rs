@@ -25,14 +25,12 @@ fn main() -> Result<(), String> {
 
     Command::new("tmux")
         .arg("popup")
-        .arg("-e")
-        .arg(format!("TMUX_PANE={}", tmux_pane))
         .arg("-h")
         .arg(height)
         .arg("-w")
         .arg(width)
-        // The -E has to be the last argument for this to work
-        .arg("-E")
+        .arg("env")
+        .arg(format!("TMUX_PANE={}", tmux_pane))
         .arg(fzf_handler_path)
         .output()
         .map_err(|e| e.to_string())?;

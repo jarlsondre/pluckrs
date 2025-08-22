@@ -7,7 +7,7 @@ pub fn get_tmux_pane_height() -> Result<u16, String> {
 
     let process = cmd
         .output()
-        .map_err(|e| format!("'tmux display-mesage' failed with error {}.", e))?;
+        .map_err(|e| format!("'tmux display-message' failed with error {}.", e))?;
 
     let pane_height_str = from_utf8(&process.stdout)
         .map_err(|e| {
@@ -20,7 +20,7 @@ pub fn get_tmux_pane_height() -> Result<u16, String> {
 
     let pane_height = pane_height_str.parse::<u16>().map_err(|e| {
         format!(
-            "Failed when parsing string, '{}' to u8. Error was {}",
+            "Failed when parsing string, '{}' to u16. Error was {}",
             pane_height_str, e
         )
     })?;
