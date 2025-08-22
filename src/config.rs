@@ -75,7 +75,7 @@ pub struct Keybinds {
     pub filter: String,
 }
 
-pub fn read_config(file_path: PathBuf) -> Result<Config, String> {
+pub fn read_config(file_path: &PathBuf) -> Result<Config, String> {
     let contents = fs::read_to_string(file_path).map_err(|e| e.to_string())?;
     let config: Config = toml::from_str(&contents).map_err(|e| e.to_string())?;
 

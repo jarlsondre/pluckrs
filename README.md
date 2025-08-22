@@ -35,7 +35,8 @@ on how to structure your config.
 ## Planned Improvements
 
 - Tests (!!!)
+- Choose whether to use `tmux popup` or something else
+- Read lines from all open tmux panes instead of only current active one
 - Remove the need for a configuration file
 - Adding `all` filter that combines all other filters
-- Choose whether to use `tmux popup` or something else
 - Configure plugin in `.tmux.conf`

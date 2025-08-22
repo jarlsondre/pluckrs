@@ -7,6 +7,18 @@ use std::{
     process::{Command, Output, Stdio},
 };
 
+pub mod colors {
+    pub const RED: &str = "\x1b[0;31m";
+    pub const GREEN: &str = "\x1b[0;32m";
+    pub const BLUE: &str = "\x1b[0;34m";
+    pub const PURPLE: &str = "\x1b[0;35m";
+    pub const CYAN: &str = "\x1b[0;36m";
+    pub const WHITE: &str = "\x1b[0;37m";
+    pub const YELLOW: &str = "\x1b[0;33m";
+    pub const OFF: &str = "\x1b[0m";
+    pub const BOLD: &str = "\x1b[1m";
+}
+
 pub fn get_home_config_file() -> Result<config::Config, String> {
     let home_directory = match home_dir() {
         Some(val) => val,
@@ -19,10 +31,11 @@ pub fn get_home_config_file() -> Result<config::Config, String> {
         .join("pluckrs")
         .join("config.toml");
 
-    let configuration = config::read_config(config_file_path).map_err(|e| {
+    let configuration = config::read_config(&config_file_path).map_err(|e| {
         format!(
             "Failed to read configuration! Make sure you have your configuration at \
-            `~/.config/pluckrs/config.toml`. Error was: '{}'",
+            `{}`. Error was: '{}'",
+            config_file_path.display(),
             e.to_string()
         )
     })?;
@@ -63,7 +76,11 @@ pub fn insert_text(text: &str, tmux_pane: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn get_filtered_data_from_lines(lines: &Vec<&str>, regex_pattern: &Regex, min_length: u8) -> String {
+pub fn get_filtered_data_from_lines(
+    lines: &Vec<&str>,
+    regex_pattern: &Regex,
+    min_length: u8,
+) -> String {
     // Finds all matches in all lines and joins the results into a single string
     // Only outputs unique matches
     let result = lines
@@ -100,8 +117,15 @@ pub fn launch_fzf(
     fzf_cmd.arg(format!("--query={}", query)); // Inject the previous query
 
     let header = format!(
-        "PLUCKRS | mode: {} | Toggle filter: {} | Copy: {} | Insert: {}",
-        mode, filter_button, copy_button, insert_button
+        "{}PLUCKRS{} | mode: {}[{}]{} | Toggle filter: {} | Copy: {} | Insert: {}",
+        colors::GREEN,
+        colors::OFF,
+        colors::GREEN,
+        mode,
+        colors::OFF,
+        filter_button,
+        copy_button,
+        insert_button
     );
     fzf_cmd.arg(format!("--header={}", header));
 

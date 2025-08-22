@@ -39,9 +39,16 @@ fn main() -> Result<(), String> {
         .collect::<Vec<&str>>();
 
     // let (mut mode, mut chosen_regex_str) = regex_iter.next().unwrap();
-    let mut mode = regex_iter.next().unwrap();
+    let mut mode = regex_iter
+        .next()
+        .ok_or_else(|| "Failed to read mode from regex_iter")?;
     let mut chosen_regex_str = &regex_map[mode];
-    let mut chosen_regex = Regex::new(&chosen_regex_str).unwrap();
+    let mut chosen_regex = Regex::new(&chosen_regex_str).map_err(|e| {
+        format!(
+            "Creating regex from {} failed! Error: {:?}",
+            chosen_regex_str, e
+        )
+    })?;
     let mut buffer_contents =
         utils::get_filtered_data_from_lines(&original_buffer_lines, &chosen_regex, min_length);
 
