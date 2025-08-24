@@ -35,7 +35,6 @@ on how to structure your config.
 ## Planned Improvements
 
 - Tests (!!!)
-- Add message if there are no results
 - Choose whether to use `tmux popup` or something else
 - Read lines from all open tmux panes instead of only current active one
 - Remove the need for a configuration file

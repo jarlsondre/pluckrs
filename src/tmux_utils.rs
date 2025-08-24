@@ -27,7 +27,11 @@ pub fn get_tmux_pane_height() -> Result<u16, String> {
 
     Ok(pane_height)
 }
-pub fn get_tmux_buffer_contents(pane_height: u16, backward_history: u32) -> Result<String, String> {
+pub fn get_tmux_buffer_contents(
+    pane_id: &str,
+    pane_height: u16,
+    backward_history: u32,
+) -> Result<String, String> {
     let mut tmux_cmd = Command::new("tmux");
     tmux_cmd
         .arg("capture-pane")
@@ -35,7 +39,10 @@ pub fn get_tmux_buffer_contents(pane_height: u16, backward_history: u32) -> Resu
         .arg("-S") // Starting line
         .arg(format!("-{}", backward_history))
         .arg("-E") // End line
-        .arg(format!("{}", pane_height));
+        .arg(format!("{}", pane_height))
+        .arg("-t")
+        .arg(format!("{}", pane_id));
+
     let cmd_output = tmux_cmd
         .output()
         .map_err(|e| format!("'tmux capture-pane' failed with error: {}", e))?;

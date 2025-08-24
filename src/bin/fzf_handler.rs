@@ -29,7 +29,7 @@ fn main() -> Result<(), String> {
         .map_err(|e| format!("Failed to read pane height! Error: {:?}", e))?;
 
     let original_buffer_contents =
-        tmux_utils::get_tmux_buffer_contents(pane_height, backward_history)?;
+        tmux_utils::get_tmux_buffer_contents(&tmux_pane, pane_height, backward_history)?;
 
     // Remove empty lines and duplicates
     let original_buffer_lines = original_buffer_contents
@@ -38,7 +38,6 @@ fn main() -> Result<(), String> {
         .unique()
         .collect::<Vec<&str>>();
 
-    // let (mut mode, mut chosen_regex_str) = regex_iter.next().unwrap();
     let mut mode = regex_iter
         .next()
         .ok_or_else(|| "Failed to read mode from regex_iter")?;
@@ -123,16 +122,7 @@ fn main() -> Result<(), String> {
         } else if key_press == "esc" {
             break;
         }
-
-        println!("query: {}", query);
-        println!("key_press: {}", key_press);
-        println!("selection: {}", selection);
-        println!("status: {}", fzf_output.status);
-        println!("stdout: {}", stdout_str);
-        println!("stderr: {:?}", fzf_output.stderr);
     }
 
-    // fzf_cmd.stdin(cfg)
-    // fzf_cmd.stdin.a
     Ok(())
 }
