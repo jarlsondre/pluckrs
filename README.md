@@ -14,9 +14,19 @@ Keep in mind that this is currently in development. Thus, there are a ton of mis
 
 ## Requirements
 
-- `tmux` (obviously)
+- `tmux`
 - `fzf`
-- `cargo` (`Rust`)
+- `Rust` & `cargo`
+
+## Installation
+Add the following line to your `.tmux.conf`:
+
+```bash
+set -g @plugin 'jarlsondre/pluckrs'
+```
+
+To start the plugin, press `<prefix> + W`, where `<prefix>` is your configured tmux button
+(default is `ctrl + b`). 
 
 ## Configuration
 
@@ -34,7 +44,7 @@ on how to structure your config.
 
 ## Planned Improvements
 
-- Tests (!!!)
+- Tests
 - Choose whether to use `tmux popup` or something else
 - Read lines from all open tmux panes instead of only current active one
 - Remove the need for a configuration file

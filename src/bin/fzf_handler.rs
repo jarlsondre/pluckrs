@@ -9,7 +9,7 @@ use std::str::from_utf8;
 // Should probably validate the regexes inside the configuration
 // At least that the modes match the actual values inside of the hashmap
 
-fn main() -> Result<(), String> {
+pub fn main() -> Result<(), String> {
     let configuration = utils::get_home_config_file()?;
     let regex_map = configuration.regexes;
     let min_length = configuration.general.min_length;
@@ -23,7 +23,8 @@ fn main() -> Result<(), String> {
     let filter_button = configuration.keybinds.filter;
     let insert_button = configuration.keybinds.insert;
 
-    let tmux_pane = std::env::var("TMUX_PANE").map_err(|e| e.to_string())?;
+    let tmux_pane = std::env::var("TMUX_PANE")
+        .expect("'TMUX_PANE' should be set as an environment variable, but was not!");
 
     let pane_height = tmux_utils::get_tmux_pane_height()
         .map_err(|e| format!("Failed to read pane height! Error: {:?}", e))?;
@@ -61,8 +62,7 @@ fn main() -> Result<(), String> {
             &filter_button,
             &copy_button,
             &insert_button,
-        )
-        .unwrap();
+        )?;
 
         // If the user presses escape or ctrl+c
         let output_code = fzf_output.status.code().unwrap();
@@ -117,7 +117,8 @@ fn main() -> Result<(), String> {
             utils::copy_into_clipboard(&selection, &clip_tool)?;
             break;
         } else if key_press == insert_button {
-            utils::insert_text(&selection, &tmux_pane)?;
+            utils::insert_text(&selection, &tmux_pane)
+                .map_err(|e| format!("Failed to insert text. Error: {}", e))?;
             break;
         } else if key_press == "esc" {
             break;

@@ -4,6 +4,7 @@ use itertools::Itertools;
 use regex::Regex;
 use std::{
     io::Write,
+    path::PathBuf,
     process::{Command, Output, Stdio},
 };
 
@@ -19,17 +20,13 @@ pub mod colors {
     pub const BOLD: &str = "\x1b[1m";
 }
 
+fn config_path_from_home_dir(home_dir: &PathBuf) -> PathBuf {
+    home_dir.join(".config").join("pluckrs").join("config.toml")
+}
+
 pub fn get_home_config_file() -> Result<config::Config, String> {
-    let home_directory = match home_dir() {
-        Some(val) => val,
-        None => {
-            return Err("Unable to find home directory!".to_string());
-        }
-    };
-    let config_file_path = home_directory
-        .join(".config")
-        .join("pluckrs")
-        .join("config.toml");
+    let home_directory = home_dir().ok_or_else(|| "Unable to find home directory!".to_string())?;
+    let config_file_path = config_path_from_home_dir(&home_directory);
 
     let configuration = config::read_config(&config_file_path).map_err(|e| {
         format!(
@@ -64,14 +61,13 @@ pub fn copy_into_clipboard(text: &str, clip_tool: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn insert_text(text: &str, tmux_pane: &str) -> Result<(), String> {
+pub fn insert_text(text: &str, tmux_pane: &str) -> Result<(), std::io::Error> {
     Command::new("tmux")
         .arg("send-keys")
         .arg("-t")
         .arg(tmux_pane)
         .arg(text)
-        .output()
-        .map_err(|e| e.to_string())?;
+        .output()?;
 
     Ok(())
 }
@@ -148,4 +144,19 @@ pub fn launch_fzf(
         .map_err(|e| e.to_string())?;
 
     Ok(output)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn config_path_is_built_correctly() {
+        let dummy_home_dir = PathBuf::from("/Users/my_home");
+        let built_config_path = config_path_from_home_dir(&dummy_home_dir);
+        assert_eq!(
+            built_config_path,
+            PathBuf::from("/Users/my_home/.config/pluckrs/config.toml")
+        );
+    }
 }
